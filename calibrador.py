@@ -154,24 +154,45 @@ def calibrar_posicoes(caminho_imagem):
 
 
 def executar_fluxo_completo(caminho_imagem):
-    coordenadas = calibrar_posicoes(caminho_imagem)
+    try:
+        coordenadas = calibrar_posicoes(caminho_imagem)
 
-    if not coordenadas:
-        print("\nNenhuma coordenada foi salva. Extração não executada.")
-        return [], []
+        if not coordenadas:
+            print("\nNenhuma coordenada foi salva. Extração não executada.")
+            return [], []
 
-    extrator = ExtratorCartaoResposta(caminho_imagem)
-    respostas = extrator.executar(coordenadas)
+        extrator = ExtratorCartaoResposta(caminho_imagem)
+        respostas = extrator.executar(coordenadas)
 
-    print("\n=== Respostas Extraídas ===")
-    print(respostas)
+        print("\n=== Respostas Extraídas ===")
+        print(respostas)
 
-    return coordenadas, respostas
+        return coordenadas, respostas
+    finally:
+        cv2.destroyAllWindows()
+
+
+def solicitar_origem_imagem():
+    return input(
+        "Informe a URL ou caminho da imagem "
+        "(ENTER para usar image.* ou 'sair' para encerrar): "
+    ).strip()
 
 
 if __name__ == "__main__":
-    origem_imagem = sys.argv[1] if len(sys.argv) > 1 else input(
-        "Informe a URL ou caminho da imagem: "
-    ).strip()
-    caminho_imagem = resolver_caminho_imagem(origem_imagem)
-    executar_fluxo_completo(caminho_imagem)
+    if len(sys.argv) > 1:
+        caminho_imagem = resolver_caminho_imagem(sys.argv[1])
+        executar_fluxo_completo(caminho_imagem)
+    else:
+        while True:
+            origem_imagem = solicitar_origem_imagem()
+
+            if origem_imagem.lower() in {"sair", "exit"}:
+                print("Encerrando o programa.")
+                break
+
+            try:
+                caminho_imagem = resolver_caminho_imagem(origem_imagem or None)
+                executar_fluxo_completo(caminho_imagem)
+            except Exception as erro:
+                print(f"\nErro ao processar a imagem: {erro}\n")
