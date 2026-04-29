@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
-import glob
+import sys
+
+from imagem_utils import resolver_caminho_imagem
 
 class ExtratorCartaoResposta:
     def __init__(self, caminho_imagem, linhas=15, colunas=5):
@@ -132,12 +134,8 @@ class ExtratorCartaoResposta:
 
 
 if __name__ == "__main__":
-    arquivos = glob.glob("image.*")
-
-    if not arquivos:
-        raise FileNotFoundError("Nenhuma imagem encontrada com nome 'image.*'")
-
-    caminho_imagem = arquivos[0]  # pega a primeira que encontrar
+    origem_imagem = sys.argv[1] if len(sys.argv) > 1 else None
+    caminho_imagem = resolver_caminho_imagem(origem_imagem)
     extrator = ExtratorCartaoResposta(caminho_imagem)
 
     coords_blocos_exemplo = [[(207, 1122), (354, 1112), (335, 1542), (176, 1552)], [(400, 1114), (542, 1104), (544, 1528), (390, 1539)], [(593, 1103), (729, 1091), (754, 1518), (598, 1527)], [(782, 1089), (918, 1083), (963, 1504), (811, 1512)], [(972, 1080), (1109, 1073), (1175, 1491), (1023, 1500)], [(1162, 1068), (1302, 1060), (1389, 1479), (1234, 1490)]]

@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
-import glob
+import sys
+
+from extrator import ExtratorCartaoResposta
+from imagem_utils import resolver_caminho_imagem
 
 pontos = []
 ponto_selecionado = None
@@ -87,6 +90,7 @@ def ordenar_pontos(pontos):
 
 def calibrar_posicoes(caminho_imagem):
     global pontos
+    pontos = []
 
     imagem = cv2.imread(caminho_imagem)
 
@@ -149,12 +153,25 @@ def calibrar_posicoes(caminho_imagem):
     return blocos_salvos
 
 
+def executar_fluxo_completo(caminho_imagem):
+    coordenadas = calibrar_posicoes(caminho_imagem)
+
+    if not coordenadas:
+        print("\nNenhuma coordenada foi salva. Extração não executada.")
+        return [], []
+
+    extrator = ExtratorCartaoResposta(caminho_imagem)
+    respostas = extrator.executar(coordenadas)
+
+    print("\n=== Respostas Extraídas ===")
+    print(respostas)
+
+    return coordenadas, respostas
+
+
 if __name__ == "__main__":
-    arquivos = glob.glob("image.*")
-
-    if not arquivos:
-        raise FileNotFoundError("Nenhuma imagem encontrada com nome 'image.*'")
-
-    caminho_imagem = arquivos[0]  # pega a primeira que encontrar
-
-    calibrar_posicoes(caminho_imagem)
+    origem_imagem = sys.argv[1] if len(sys.argv) > 1 else input(
+        "Informe a URL ou caminho da imagem: "
+    ).strip()
+    caminho_imagem = resolver_caminho_imagem(origem_imagem)
+    executar_fluxo_completo(caminho_imagem)
