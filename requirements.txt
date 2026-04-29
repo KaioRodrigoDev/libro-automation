@@ -1,0 +1,11 @@
+altgraph @ file:///AppleInternal/Library/BuildRoots/4~CAP1ugDqYZ2ZVF_54thwSWnK-8L4LO5_Zcx-VcI/Library/Caches/com.apple.xbs/Sources/python3/altgraph-0.17.2-py2.py3-none-any.whl
+certifi==2026.2.25
+charset-normalizer==3.4.5
+future @ file:///AppleInternal/Library/BuildRoots/4~CAP1ugDqYZ2ZVF_54thwSWnK-8L4LO5_Zcx-VcI/Library/Caches/com.apple.xbs/Sources/python3/future-0.18.2-py3-none-any.whl
+idna==3.11
+macholib @ file:///AppleInternal/Library/BuildRoots/4~CAP1ugDqYZ2ZVF_54thwSWnK-8L4LO5_Zcx-VcI/Library/Caches/com.apple.xbs/Sources/python3/macholib-1.15.2-py2.py3-none-any.whl
+numpy==2.0.2
+opencv-python==4.13.0.92
+requests==2.32.5
+six @ file:///AppleInternal/Library/BuildRoots/4~CAP1ugDqYZ2ZVF_54thwSWnK-8L4LO5_Zcx-VcI/Library/Caches/com.apple.xbs/Sources/python3/six-1.15.0-py2.py3-none-any.whl
+urllib3==2.6.3
