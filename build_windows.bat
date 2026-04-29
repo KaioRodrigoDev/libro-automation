@@ -10,7 +10,12 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 pip install pyinstaller
 
-pyinstaller --onefile --name calibrador calibrador.py
+pyinstaller --clean --noconfirm --onefile --name calibrador ^
+    --collect-all cv2 ^
+    --collect-all numpy ^
+    --collect-all certifi ^
+    --hidden-import cv2 ^
+    calibrador.py
 
 echo.
 echo Executavel gerado em: dist\calibrador.exe
