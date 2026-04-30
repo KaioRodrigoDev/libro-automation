@@ -8,7 +8,7 @@ if not exist venv (
 call venv\Scripts\activate.bat
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-pip install opencv-python numpy certifi
+pip install opencv-python numpy certifi selenium
 pip install pyinstaller
 
 python -m PyInstaller --clean --noconfirm --onefile --name calibrador ^
@@ -19,5 +19,15 @@ python -m PyInstaller --clean --noconfirm --onefile --name calibrador ^
     --hidden-import cv2 ^
     calibrador.py
 
+python -m PyInstaller --clean --noconfirm --onefile --name automacao ^
+    --collect-all cv2 ^
+    --collect-submodules cv2 ^
+    --collect-all numpy ^
+    --collect-all certifi ^
+    --collect-all selenium ^
+    --hidden-import cv2 ^
+    --hidden-import selenium ^
+    automacao.py
+
 echo.
-echo Executavel gerado em: dist\calibrador.exe
+echo Executaveis gerados em: dist\calibrador.exe e dist\automacao.exe
