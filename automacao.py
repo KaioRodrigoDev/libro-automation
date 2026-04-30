@@ -209,42 +209,52 @@ def main():
         sys.exit(1)
 
     print(f"Conectado! Página: {driver.title}")
-    print(f"URL: {driver.current_url}\n")
+    print(f"URL: {driver.current_url}")
 
-    # 1. Encontrar URL da imagem
-    print("Buscando imagens na página...")
-    url_imagem = encontrar_url_imagem(driver)
-    print(f"\nImagem selecionada: {url_imagem[:120]}")
+    while True:
+        print("\n" + "-" * 50)
+        print(f"Página atual: {driver.title}")
+        print(f"URL: {driver.current_url}\n")
 
-    # 2. Baixar imagem (com cookies do navegador para autenticação)
-    print("\nBaixando imagem...")
-    caminho_imagem = baixar_imagem_com_cookies(driver, url_imagem)
-    print(f"Imagem salva em: {caminho_imagem}")
+        # 1. Encontrar URL da imagem
+        print("Buscando imagens na página...")
+        url_imagem = encontrar_url_imagem(driver)
+        print(f"\nImagem selecionada: {url_imagem[:120]}")
 
-    # 3. Abrir calibrador para marcar regiões
-    print("\nAbrindo calibrador - marque as regiões das respostas...")
-    coordenadas, respostas = executar_fluxo_completo(caminho_imagem)
+        # 2. Baixar imagem (com cookies do navegador para autenticação)
+        print("\nBaixando imagem...")
+        caminho_imagem = baixar_imagem_com_cookies(driver, url_imagem)
+        print(f"Imagem salva em: {caminho_imagem}")
 
-    if not respostas:
-        print("\nNenhuma resposta extraída. Encerrando.")
-        return
+        # 3. Abrir calibrador para marcar regiões
+        print("\nAbrindo calibrador - marque as regiões das respostas...")
+        coordenadas, respostas = executar_fluxo_completo(caminho_imagem)
 
-    # 4. Mostrar respostas extraídas
-    print(f"\nRespostas extraídas ({len(respostas)}):")
-    for i in range(0, len(respostas), 15):
-        bloco = respostas[i:i + 15]
-        nums = [f"{i + j + 1}:{r}" for j, r in enumerate(bloco)]
-        print(f"  {', '.join(nums)}")
+        if not respostas:
+            print("\nNenhuma resposta extraída.")
+        else:
+            # 4. Mostrar respostas extraídas
+            print(f"\nRespostas extraídas ({len(respostas)}):")
+            for i in range(0, len(respostas), 15):
+                bloco = respostas[i:i + 15]
+                nums = [f"{i + j + 1}:{r}" for j, r in enumerate(bloco)]
+                print(f"  {', '.join(nums)}")
 
-    # 5. Preencher automaticamente
-    print("\nPreenchendo respostas no site...")
-    resultado = preencher_respostas(driver, respostas)
+            # 5. Preencher automaticamente
+            print("\nPreenchendo respostas no site...")
+            resultado = preencher_respostas(driver, respostas)
 
-    print(f"\nResultado:")
-    print(f"  Preenchidas: {resultado['preenchidas']}")
-    print(f"  Erros:       {resultado['erros']}")
-    print(f"  Total:       {resultado['total']}")
-    print("\nProcesso concluído com sucesso!")
+            print(f"\nResultado:")
+            print(f"  Preenchidas: {resultado['preenchidas']}")
+            print(f"  Erros:       {resultado['erros']}")
+            print(f"  Total:       {resultado['total']}")
+            print("\nProcesso concluído com sucesso!")
+
+        try:
+            input("\nTecle Enter para iniciar uma nova extração na página atual (Ctrl+C para sair)...")
+        except KeyboardInterrupt:
+            print("\n\nEncerrando.")
+            break
 
 
 if __name__ == "__main__":
