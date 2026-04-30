@@ -117,7 +117,7 @@ class ExtratorCartaoResposta:
                 alternativa_marcada = np.argmax(linha_pixels)
                 respostas_bloco.append(chr(65 + alternativa_marcada))
             else:
-                respostas_bloco.append("Nula/Branco")
+                respostas_bloco.append("P") # P é o Branco/Nulo
 
         return respostas_bloco
 
