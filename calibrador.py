@@ -7,10 +7,19 @@ from imagem_utils import resolver_caminho_imagem
 
 pontos = []
 ponto_selecionado = None
+arrastando_imagem = False
+ultimo_mouse = None
+zoom = 1.0
+offset_x = 0
+offset_y = 0
+tamanho_janela = (1280, 720)
 
 raio_ponto = 2
 area_selecao = 8
 MAX_BLOCOS = 6
+ZOOM_MIN = 0.2
+ZOOM_MAX = 6.0
+ZOOM_STEP = 1.2
 
 
 def desenhar_poligono(img, pontos, cor):
@@ -48,16 +57,74 @@ def desenhar_interface(imagem_base, blocos_salvos, bloco_atual):
     return img
 
 
+def limitar_offsets(largura_imagem, altura_imagem):
+    global offset_x, offset_y
+
+    largura_zoom = max(1, int(largura_imagem * zoom))
+    altura_zoom = max(1, int(altura_imagem * zoom))
+    largura_view, altura_view = tamanho_janela
+
+    offset_x = max(0, min(offset_x, max(0, largura_zoom - largura_view)))
+    offset_y = max(0, min(offset_y, max(0, altura_zoom - altura_view)))
+
+
+def atualizar_tamanho_janela(nome_janela):
+    global tamanho_janela
+
+    try:
+        _, _, largura, altura = cv2.getWindowImageRect(nome_janela)
+        if largura > 0 and altura > 0:
+            tamanho_janela = (largura, altura)
+    except cv2.error:
+        pass
+
+
+def tela_para_imagem(x, y, largura_imagem, altura_imagem):
+    x_img = int((x + offset_x) / zoom)
+    y_img = int((y + offset_y) / zoom)
+
+    x_img = max(0, min(x_img, largura_imagem - 1))
+    y_img = max(0, min(y_img, altura_imagem - 1))
+
+    return x_img, y_img
+
+
+def criar_viewport(imagem):
+    largura_view, altura_view = tamanho_janela
+
+    imagem_zoom = cv2.resize(
+        imagem,
+        None,
+        fx=zoom,
+        fy=zoom,
+        interpolation=cv2.INTER_LINEAR
+    )
+
+    altura_zoom, largura_zoom = imagem_zoom.shape[:2]
+    x_fim = min(offset_x + largura_view, largura_zoom)
+    y_fim = min(offset_y + altura_view, altura_zoom)
+
+    recorte = imagem_zoom[offset_y:y_fim, offset_x:x_fim]
+    viewport = np.zeros((altura_view, largura_view, 3), dtype=np.uint8)
+    viewport[:recorte.shape[0], :recorte.shape[1]] = recorte
+
+    return viewport
+
+
 def mouse_callback(event, x, y, flags, param):
-    global ponto_selecionado
+    global ponto_selecionado, arrastando_imagem, ultimo_mouse, zoom, offset_x, offset_y
+
+    largura_imagem = param["largura_imagem"]
+    altura_imagem = param["altura_imagem"]
+    x_img, y_img = tela_para_imagem(x, y, largura_imagem, altura_imagem)
 
     if event == cv2.EVENT_LBUTTONDOWN:
         if len(pontos) < 4:
-            pontos.append((x, y))
+            pontos.append((x_img, y_img))
             return
 
         for i, p in enumerate(pontos):
-            distancia = np.linalg.norm(np.array(p) - np.array((x, y)))
+            distancia = np.linalg.norm(np.array(p) - np.array((x_img, y_img)))
 
             if distancia <= area_selecao:
                 ponto_selecionado = i
@@ -65,10 +132,37 @@ def mouse_callback(event, x, y, flags, param):
 
     elif event == cv2.EVENT_MOUSEMOVE:
         if ponto_selecionado is not None:
-            pontos[ponto_selecionado] = (x, y)
+            pontos[ponto_selecionado] = (x_img, y_img)
+        elif arrastando_imagem and ultimo_mouse is not None:
+            dx = x - ultimo_mouse[0]
+            dy = y - ultimo_mouse[1]
+            offset_x -= dx
+            offset_y -= dy
+            limitar_offsets(largura_imagem, altura_imagem)
+            ultimo_mouse = (x, y)
 
     elif event == cv2.EVENT_LBUTTONUP:
         ponto_selecionado = None
+
+    elif event == cv2.EVENT_RBUTTONDOWN:
+        arrastando_imagem = True
+        ultimo_mouse = (x, y)
+
+    elif event == cv2.EVENT_RBUTTONUP:
+        arrastando_imagem = False
+        ultimo_mouse = None
+
+    elif event == cv2.EVENT_MOUSEWHEEL:
+        zoom_anterior = zoom
+        if flags > 0:
+            zoom = min(ZOOM_MAX, zoom * ZOOM_STEP)
+        else:
+            zoom = max(ZOOM_MIN, zoom / ZOOM_STEP)
+
+        if zoom != zoom_anterior:
+            offset_x = int(((x + offset_x) / zoom_anterior) * zoom - x)
+            offset_y = int(((y + offset_y) / zoom_anterior) * zoom - y)
+            limitar_offsets(largura_imagem, altura_imagem)
 
 
 def ordenar_pontos(pontos):
@@ -89,8 +183,14 @@ def ordenar_pontos(pontos):
 
 
 def calibrar_posicoes(caminho_imagem):
-    global pontos
+    global pontos, ponto_selecionado, arrastando_imagem, ultimo_mouse, zoom, offset_x, offset_y
     pontos = []
+    ponto_selecionado = None
+    arrastando_imagem = False
+    ultimo_mouse = None
+    zoom = 1.0
+    offset_x = 0
+    offset_y = 0
 
     imagem = cv2.imread(caminho_imagem)
 
@@ -102,18 +202,47 @@ def calibrar_posicoes(caminho_imagem):
     print("=== Modo de Calibração com Inclinação ===")
     print("- Para cada coluna, clique nos 4 vértices.")
     print("- Ajuste arrastando cada ponto.")
+    print("- Scroll do mouse controla o zoom.")
+    print("- Botao direito arrasta a imagem.")
     print("- ENTER ou ESPAÇO salva a coluna atual.")
     print("- R reseta a coluna atual.")
     print("- U remove a última coluna salva.")
     print("- ESC finaliza.\n")
 
     nome_janela = "Selecionar colunas inclinadas"
-    cv2.namedWindow(nome_janela)
-    cv2.setMouseCallback(nome_janela, mouse_callback)
+    cv2.namedWindow(nome_janela, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(nome_janela, *tamanho_janela)
+    cv2.setMouseCallback(
+        nome_janela,
+        mouse_callback,
+        {"largura_imagem": imagem.shape[1], "altura_imagem": imagem.shape[0]}
+    )
 
     while True:
+        atualizar_tamanho_janela(nome_janela)
+        limitar_offsets(imagem.shape[1], imagem.shape[0])
+
         preview = desenhar_interface(imagem, blocos_salvos, pontos)
-        cv2.imshow(nome_janela, preview)
+        viewport = criar_viewport(preview)
+        cv2.putText(
+            viewport,
+            f"Zoom: {zoom:.2f}x",
+            (10, 25),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 255, 255),
+            2
+        )
+        cv2.putText(
+            viewport,
+            "Scroll: zoom | Botao direito: mover",
+            (10, 50),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (255, 255, 255),
+            1
+        )
+        cv2.imshow(nome_janela, viewport)
 
         tecla = cv2.waitKey(20) & 0xFF
 
