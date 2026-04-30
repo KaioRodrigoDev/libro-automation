@@ -253,6 +253,102 @@ def calibrar_posicoes(caminho_imagem):
     cv2.destroyAllWindows()
     return blocos_salvos
 
+def revisar_extracao(caminho_imagem, respostas, centros):
+    global arrastando_imagem, ultimo_mouse, zoom, offset_x, offset_y
+    zoom = 1.0
+    offset_x = 0
+    offset_y = 0
+    arrastando_imagem = False
+    ultimo_mouse = None
+
+    imagem = cv2.imread(caminho_imagem)
+    respostas_atuais = respostas.copy()
+    respostas_originais = respostas.copy()
+    letras = ['A', 'B', 'C', 'D', 'E']
+
+    def mouse_callback_revisao(event, x, y, flags, param):
+        global arrastando_imagem, ultimo_mouse, zoom, offset_x, offset_y
+        largura_imagem = param["largura_imagem"]
+        altura_imagem = param["altura_imagem"]
+        x_img, y_img = tela_para_imagem(x, y, largura_imagem, altura_imagem)
+
+        if event == cv2.EVENT_LBUTTONDOWN:
+            for q_idx, centros_q in enumerate(centros):
+                for alt_idx, (cx, cy) in enumerate(centros_q):
+                    dist = np.linalg.norm(np.array((cx, cy)) - np.array((x_img, y_img)))
+                    if dist <= 20:
+                        respostas_atuais[q_idx] = letras[alt_idx]
+                        return
+
+        elif event == cv2.EVENT_RBUTTONDOWN:
+            arrastando_imagem = True
+            ultimo_mouse = (x, y)
+        elif event == cv2.EVENT_RBUTTONUP:
+            arrastando_imagem = False
+            ultimo_mouse = None
+        elif event == cv2.EVENT_MOUSEMOVE:
+            if arrastando_imagem and ultimo_mouse is not None:
+                dx = x - ultimo_mouse[0]
+                dy = y - ultimo_mouse[1]
+                offset_x -= dx
+                offset_y -= dy
+                limitar_offsets(largura_imagem, altura_imagem)
+                ultimo_mouse = (x, y)
+        elif event == cv2.EVENT_MOUSEWHEEL:
+            zoom_anterior = zoom
+            if flags > 0:
+                zoom = min(ZOOM_MAX, zoom * ZOOM_STEP)
+            else:
+                zoom = max(ZOOM_MIN, zoom / ZOOM_STEP)
+            if zoom != zoom_anterior:
+                offset_x = int(((x + offset_x) / zoom_anterior) * zoom - x)
+                offset_y = int(((y + offset_y) / zoom_anterior) * zoom - y)
+                limitar_offsets(largura_imagem, altura_imagem)
+
+    nome_janela = "Revisar Gabarito"
+    cv2.namedWindow(nome_janela, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(nome_janela, *tamanho_janela)
+    cv2.setMouseCallback(nome_janela, mouse_callback_revisao, {"largura_imagem": imagem.shape[1], "altura_imagem": imagem.shape[0]})
+
+    print("\n=== Tela de Revisão ===")
+    print("- Bolinhas vermelhas: identificadas automaticamente pelo sistema.")
+    print("- Clique em outra bolinha para corrigir (ela ficará verde).")
+    print("- ENTER ou ESPAÇO para confirmar o gabarito final e preencher no site.")
+
+    while True:
+        atualizar_tamanho_janela(nome_janela)
+        limitar_offsets(imagem.shape[1], imagem.shape[0])
+
+        img_draw = imagem.copy()
+
+        for q_idx, centros_q in enumerate(centros):
+            resp_atual = respostas_atuais[q_idx]
+            resp_orig = respostas_originais[q_idx]
+
+            for alt_idx, (cx, cy) in enumerate(centros_q):
+                letra = letras[alt_idx]
+
+                cv2.circle(img_draw, (cx, cy), 14, (200, 200, 200), 1)
+
+                if resp_atual == letra:
+                    cor = (0, 0, 255) if resp_atual == resp_orig else (0, 255, 0)
+                    cv2.circle(img_draw, (cx, cy), 14, cor, -1)
+
+                    cv2.putText(img_draw, letra, (cx - 6, cy + 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+        viewport = criar_viewport(img_draw)
+        cv2.putText(viewport, "Revisao: ENTER salva o gabarito | Clique nas bolinhas para corrigir", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        cv2.imshow(nome_janela, viewport)
+
+        tecla = cv2.waitKey(20) & 0xFF
+        if tecla in [13, 32]:
+            break
+        elif tecla == 27:
+            break
+
+    cv2.destroyAllWindows()
+    return respostas_atuais
+
 def executar_fluxo_completo(caminho_imagem):
     try:
         coordenadas = calibrar_posicoes(caminho_imagem)
@@ -261,10 +357,20 @@ def executar_fluxo_completo(caminho_imagem):
             return [], []
 
         extrator = ExtratorCartaoResposta(caminho_imagem)
-        respostas = extrator.executar(coordenadas)
-        print("\n=== Respostas Extraídas ===")
+        # Agora o extrator retorna as respostas E as posições exatas na tela
+        respostas, centros = extrator.executar(coordenadas)
+
+        print("\n=== Respostas Extraídas (Originais) ===")
         print(respostas)
-        return coordenadas, respostas
+
+        # Chama a nova tela de revisão e devolve as respostas corrigidas por você
+        respostas_revisadas = revisar_extracao(caminho_imagem, respostas, centros)
+
+        print("\n=== Respostas Finais Confirmadas ===")
+        print(respostas_revisadas)
+
+        # Retorna as respostas corrigidas para o Selenium preencher no automacao.py
+        return coordenadas, respostas_revisadas
     finally:
         cv2.destroyAllWindows()
 
